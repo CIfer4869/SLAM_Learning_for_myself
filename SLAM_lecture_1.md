@@ -1,9 +1,49 @@
 # Ubuntu 24.04 C++/CMake SLAM 入门操作与常见问题
 
 > 内容依据《视觉SLAM十四讲》第2讲，覆盖终端和 VS Code 两种使用方式。  
-> 环境：Ubuntu 24.04、g++ 13、CMake 3.28、vim、VS Code C/C++ 工具链。  
-> 目标：完成 Hello SLAM 单文件编译、CMake 外部构建、静态库工程、VS Code 断点调试，并记录常见报错现象、原因和修复方法。  
-> 注意事项：建议使用外部构建（out-of-source build），将 build 目录与源码目录分离，避免在源码目录直接执行 `cmake .`。
+> 当前实际环境：Ubuntu 24.04、g++ 13、CMake 3.28，工程位于 `/home/cyfer/SLAM-Learning/lecture_1~2`。  
+> 当前工程已经包含单文件程序、静态库和两个 CMake 可执行目标；本文中的命令和文件名均按这个实际工程整理。  
+> 建议使用外部构建（out-of-source build），将 `build` 目录与源码目录分离，避免在源码目录直接执行 `cmake .`。
+
+## 先看当前实际状态
+
+当前打开的讲义文件与 C++ 工程不在同一个目录：
+
+| 内容 | 实际路径 | 用途 |
+| --- | --- | --- |
+| 本讲义 | `/home/cyfer/SLAM_Learning_for_myself-main/SLAM_lecture_1.md` | 学习记录 |
+| C++ 工程源码根目录 | `/home/cyfer/SLAM-Learning/lecture_1~2` | CMake 的源码目录 |
+| CMake 构建目录 | `/home/cyfer/SLAM-Learning/lecture_1~2/build` | 编译缓存、目标文件、库和程序 |
+
+实际工程文件如下：
+
+```text
+/home/cyfer/SLAM-Learning/lecture_1~2/
+├── CMakeLists.txt       # 定义 1 个静态库和 2 个可执行目标
+├── main.cpp             # 独立的 Hello SLAM 程序
+├── hello.h              # printHello() 函数声明
+├── libhello.cpp         # printHello() 函数实现
+├── useHello.cpp         # 调用静态库的程序
+└── build/               # 已存在的外部构建目录，不放源码
+    ├── helloslam        # CMake 目标：由 main.cpp 生成
+    ├── useHello         # CMake 目标：由 useHello.cpp + libhello.a 生成
+    ├── libhello.a       # CMake 目标 hello 生成的静态库
+    ├── main             # 手动编译 main.cpp 产生的可执行文件
+    ├── CMakeCache.txt   # CMake 配置缓存
+    ├── CMakeFiles/      # CMake 内部文件
+    ├── Makefile         # CMake 生成的 make 构建文件
+    └── cmake_install.cmake
+```
+
+这里要特别区分两个阶段：`main.cpp` 是源文件；第一步手动编译可以生成 `main` 或 `a.out`；后面执行当前 `CMakeLists.txt` 后，CMake 生成的是 `helloslam`、`useHello` 和 `libhello.a`。如果你在 `build` 目录中执行过 `g++ ../main.cpp -o main`，就会得到当前看到的 `build/main`。CMake 不会使用它，也不会自动删除它。
+
+可以用下面的命令重新确认状态：
+
+```bash
+cd /home/cyfer/SLAM-Learning/lecture_1~2
+find . -maxdepth 1 -type f -printf '%f\n' | sort
+find build -maxdepth 1 -type f -printf '%f\n' | sort
+```
 
 ---
 
@@ -34,10 +74,14 @@ sudo apt install g++ make cmake vim gdb
 
 对应书本 2.4.2 节 Hello SLAM，在终端中快速验证编译流程。
 
-### 2.1 目录与源码
+### 2.1 对应的实际文件
+
+本步骤只验证 `main.cpp`，不会使用 `hello.h`、`libhello.cpp` 或 `useHello.cpp`。这些文件属于后面的静态库工程。
+
+实际文件：`/home/cyfer/SLAM-Learning/lecture_1~2/main.cpp`
 
 ```text
-~/桌面/code/
+/home/cyfer/SLAM-Learning/lecture_1~2/
 └── main.cpp
 ```
 
@@ -45,11 +89,10 @@ sudo apt install g++ make cmake vim gdb
 
 ```cpp
 #include <iostream>
-using namespace std;
 
-int main(int argc, char** argv)
+int main()
 {
-    cout << "Hello SLAM" << endl;
+    std::cout << "Hello SLAM" << '\n';
     return 0;
 }
 ```
@@ -58,12 +101,12 @@ int main(int argc, char** argv)
 
 ```bash
 # 1. 进入工作目录
-cd ~/桌面/code
+cd /home/cyfer/SLAM-Learning/lecture_1~2
 
-# 2. 创建源码文件
-touch main.cpp
+# 2. 确认实际源码存在（本工程中 main.cpp 已经存在）
+ls -l main.cpp
 
-# 3. 使用 vim 编辑源码
+# 3. 查看或编辑源码
 vim main.cpp
 # --- vim 内操作 ---
 # 按 i 进入插入模式，写入上述代码
@@ -71,16 +114,38 @@ vim main.cpp
 # 输入 :wq  保存并退出
 # ------------------
 
-# 4. 编译，-o 指定输出可执行文件名
-g++ main.cpp -o main
+# 4. 不指定输出文件名，默认生成 a.out
+g++ -std=c++17 -Wall -Wextra main.cpp
 
-# 5. 运行程序
+# 5. 运行默认生成的程序
+./a.out
+
+# 6. 指定输出文件名，生成 main
+g++ -std=c++17 -Wall -Wextra main.cpp -o main
+
+# 7. 运行指定名称的程序
+./main
+
+# 8. 查看当前目录中的手动编译产物
+ls -l a.out main
+
+# 9. a.out 可以删除；main 可以保留用于后面对照
+rm a.out
+```
+
+**输出结果**：`./a.out` 和 `./main` 都会显示 `Hello SLAM`。`a.out` 是默认名称，`main` 是通过 `-o main` 指定的名称。它们都是手动编译产物，不属于 CMake 生成结果；`a.out` 通常可以删除，`main` 可以暂时保留用于对照。
+
+> 说明：不写 `-o` 时，g++ 默认生成 `a.out`；写成 `-o main` 时生成 `main`。Linux 运行当前目录中的程序需要加 `./`。如果在 `build` 目录中编译，应使用 `g++ ../main.cpp -o main`，此时文件就是当前实际存在的 `build/main`。
+
+如果你是在 `build` 目录中完成第一步，流程对应如下：
+
+```bash
+cd /home/cyfer/SLAM-Learning/lecture_1~2/build
+g++ ../main.cpp -o main
 ./main
 ```
 
-**输出结果**：`Hello SLAM`
-
-> 说明：不写 `-o main` 时，g++ 默认生成名为 `a.out` 的可执行文件，运行命令为 `./a.out`。
+这个 `main` 可以和后面 CMake 生成的 `helloslam` 同时存在，二者都来自 `main.cpp`，但生成方式不同。
 
 ### 2.3 vim 基本操作
 
@@ -120,11 +185,11 @@ g++ main.cpp -o main
 - **验证方法**：`cat main.cpp` 查看磁盘上的真实文件内容，核对是否为最新代码。  
 - **解决**：vim 必须执行 `:w` 写盘；gedit 等图形编辑器需确认标签页无未保存圆点。
 
-#### 问题 4：运行时提示 `bash: ./main: 没有那个文件或目录`
+#### 问题 4：运行时提示 `bash: ./a.out: 没有那个文件或目录`
 
 - **两种原因**：
   1. 编译失败：存在语法或链接错误，没有生成可执行文件（只要终端有红色报错，就不会产出程序）。  
-  2. 文件名不匹配：`g++ main.cpp` 默认生成 `a.out`，却执行 `./main`。  
+    2. 文件名不匹配：没有使用 `-o` 时生成的是 `a.out`，却执行了其他文件名；或者已经执行 `rm a.out` 删除了它。
 - **判断编译成功**：终端无任何输出、无红色报错，即为编译成功。
 
 #### 问题 5：`‘cout’ was not declared in this scope`
@@ -134,9 +199,9 @@ g++ main.cpp -o main
 - **两种处理方式**：
   - 方案 A（工程中更常用，减少命名冲突）：加 `std::` 前缀
 
-  ```cpp
+    ```cpp
   std::cout << "Hello SLAM" << std::endl;
-  ```cpp
+    ```
   - 方案 B（小型练习可用）：文件头引入全局命名空间  
   ```cpp
   #include <iostream>
@@ -151,34 +216,52 @@ g++ main.cpp -o main
 
 对应书本 2.4.3 节，SLAM 项目通常使用 CMake 管理工程，建议采用 build 外部构建。
 
-### 3.1 目录结构
+### 3.1 当前 CMake 工程的目录结构
 
 ```text
-~/桌面/code/
-├─ CMakeLists.txt    # CMake 构建脚本，位于源码根目录
-└── main.cpp
-build/               # 手动创建，编译产物全部放在这里
+/home/cyfer/SLAM-Learning/lecture_1~2/
+├── CMakeLists.txt    # 当前工程的完整构建脚本
+├── main.cpp          # 生成 helloslam
+├── hello.h           # 静态库接口
+├── libhello.cpp      # 静态库实现
+└── useHello.cpp      # 调用静态库
+build/                # 外部构建目录，构建产物放在这里
 ```
 
-### 3.2 CMakeLists.txt 最小示例
+### 3.2 当前实际的 CMakeLists.txt
 
-```cpp
+当前文件已经是静态库工程的完整配置，不是只有 `main` 一个目标：
+
+```cmake
 # 指定 CMake 最低版本
 cmake_minimum_required(VERSION 3.10)
 # 声明工程名称
-project(HelloSLAM)
-# 生成可执行程序：add_executable(程序名 源文件.cpp)
-add_executable(main main.cpp)
+project(helloSLAM)
+add_executable(helloslam main.cpp)
+add_library(hello libhello.cpp)
+add_executable(useHello useHello.cpp)
+target_link_libraries(useHello hello)
+set(CMAKE_BUILD_TYPE "Debug")
 ```
+
+文件与目标的对应关系：
+
+| CMake 配置 | 生成结果 | 作用 |
+| --- | --- | --- |
+| `add_executable(helloslam main.cpp)` | `build/helloslam` | 直接运行 `main.cpp` |
+| `add_library(hello libhello.cpp)` | `build/libhello.a` | 编译 `printHello()` 的静态库 |
+| `add_executable(useHello useHello.cpp)` + `target_link_libraries` | `build/useHello` | 调用静态库中的 `printHello()` |
+
+因此，当前工程中运行 CMake 生成的 Hello SLAM 程序应使用 `./helloslam`，不是 `./main`。
 
 ### 3.3 终端操作步骤
 
 ```bash
 # 1. 进入源码根目录
-cd ~/桌面/code
+cd /home/cyfer/SLAM-Learning/lecture_1~2
 
-# 2. 新建独立 build 目录（外部构建）
-mkdir build
+# 2. 创建独立 build 目录（已存在时不会报错）
+mkdir -p build
 
 # 3. 进入 build 目录
 cd build
@@ -188,10 +271,19 @@ cd build
 cmake ..
 
 # 5. 执行编译
-make
+ make
 
-# 6. 在 build 目录运行程序
-./main
+# 6. 确认并运行当前 CMake 目标
+ls -l helloslam useHello libhello.a
+./helloslam
+./useHello
+```
+
+实际输出：
+
+```text
+Hello SLAM
+Hello SLAM static library!
 ```
 
 ### 3.4 清理工程
@@ -204,11 +296,11 @@ rm -rf build
 
 ### 3.5 常见问题
 
-#### 问题 1：CMake 报错 `No SOURCES given to target: main`
+#### 问题 1：CMake 报错 `No SOURCES given to target`
 
 - **原因**：`add_executable()` 只写了程序名，缺少源代码文件参数。  
-- **错误写法**：`add_executable(main)`  
-- **正确写法**：`add_executable(main main.cpp)`
+- **错误示例**：`add_executable(main)`
+- **正确写法**：`add_executable(helloslam main.cpp)`
 
 #### 问题 2：`Cannot find source file: mian.cpp`
 
@@ -229,12 +321,13 @@ rm -rf build
 
   - 外部构建（更规范）：直接删除整个 build 文件夹重建  
 
-  ```bash
-  rm -rf build
-  mkdir build && cd build
-  cmake ..
-  make
-  ```
+    ```bash
+    rm -rf build
+    mkdir build
+    cd build
+    cmake ..
+    make
+    ```
 
 #### 问题 4：CMake Deprecation Warning 版本警告
 
@@ -263,7 +356,7 @@ rm -rf build
 ### 4.1 目录结构
 
 ```text
-learn-slam-ch2/          # 项目源码根目录，VS Code 可打开此文件夹
+/home/cyfer/SLAM-Learning/lecture_1~2/          # 项目源码根目录，VS Code 可打开此文件夹
 ├─ CMakeLists.txt        # CMake 构建脚本
 ├─ main.cpp              # 测试程序 1
 ├─ useHello.cpp          # 测试程序 2：调用静态库
@@ -276,7 +369,8 @@ build/                   # 编译输出目录，全部自动生成，不放任�
 >
 > 1. `.h`、`.cpp`、`CMakeLists.txt` 通常放在源码根目录。  
 > 2. 不建议在 build 文件夹里新建或编辑源码文件。  
-> 3. build 目录可随时删除重建，不会丢失源代码。
+> 3. 如果从空目录开始，先创建下面四个源码文件；当前工程中它们已经存在，可以直接检查内容。  
+> 4. build 目录可随时删除重建，不会丢失源码。
 
 ### 4.2 源码文件
 
@@ -320,7 +414,7 @@ int main(int argc, char** argv)
 
 #### 4. CMakeLists.txt
 
-```cpp
+```cmake
 cmake_minimum_required(VERSION 3.10)
 project(helloSLAM)
 
@@ -340,11 +434,30 @@ target_link_libraries(useHello hello)
 set(CMAKE_BUILD_TYPE "Debug")
 ```
 
-### 4.3 标准工作流
+### 4.3 从文件到产物的完整操作
+
+如果这些文件还不存在，可以先创建空文件，再分别写入上面的内容：
+
+```bash
+cd /home/cyfer/SLAM-Learning/lecture_1~2
+touch hello.h libhello.cpp useHello.cpp CMakeLists.txt
+ls -l hello.h libhello.cpp useHello.cpp CMakeLists.txt
+```
+
+`touch` 只负责创建文件，不会自动写入代码；必须用 VS Code、vim 等编辑器保存内容。写完后可用下面的命令确认磁盘中的实际内容：
+
+```bash
+cat hello.h
+cat libhello.cpp
+cat useHello.cpp
+cat CMakeLists.txt
+```
+
+### 4.4 标准工作流
 
 ```bash
 # 1. 进入项目源码根目录
-cd ~/桌面/learn-slam-ch2
+cd /home/cyfer/SLAM-Learning/lecture_1~2
 
 # 2. 创建并进入 build 目录
 mkdir -p build
@@ -354,27 +467,42 @@ cd build
 cmake ..
 
 # 4. 编译
-make
+ make
 
-# 5. 运行生成的程序
+# 5. 查看 CMake 生成的产物
+ls -l helloslam useHello libhello.a
+
+# 6. 运行生成的程序
 ./helloslam
 ./useHello
 ```
 
-编译完成后，build 目录会生成 `libhello.a` 静态库文件。静态库链接时，会将库代码直接拷贝进可执行程序。
+编译完成后，`build` 目录会生成 `helloslam`、`useHello` 和 `libhello.a`。其中 `CMakeFiles/`、`Makefile`、`CMakeCache.txt` 等是 CMake 的内部构建文件，不要手动修改；`build` 整体可以在需要时删除重建。
 
-### 4.4 修改配置后的清理操作
+### 4.5 修改配置后的重新构建与清理
 
-修改 CMakeLists.txt 或新增源文件后，建议清空 build 目录重建，避免旧缓存干扰：
+修改 `CMakeLists.txt` 或新增源文件后，通常先重新配置并构建，不必每次删除缓存：
 
 ```bash
+cd /home/cyfer/SLAM-Learning/lecture_1~2/build
+cmake ..
+ make
+```
+
+只有缓存异常、切换编译器或需要彻底重来时，才清空 `build`：
+
+```bash
+cd /home/cyfer/SLAM-Learning/lecture_1~2
+rm -rf build
+mkdir build
 cd build
-rm -rf *    # 清空 build 内所有产物
 cmake ..
 make
 ```
 
-### 4.5 链接错误排查
+删除 `build` 只会删除构建产物，不会影响源码目录中的五个源文件。当前目录中的 `build/main` 是手动编译留下的旧文件，清理后不会重新生成。
+
+### 4.6 链接错误排查
 
 典型报错：`undefined reference to 'printHello()'`
 
@@ -387,7 +515,7 @@ make
 3. 写了 `add_library`，但未写 `target_link_libraries`，可执行程序没有链接库。  
 4. 函数名拼写不一致：声明、实现、调用三处名称不匹配。
 
-### 4.6 错误类型区分
+### 4.7 错误类型区分
 
 | 错误阶段 | 典型现象 | 原因分类 |
 | --- | --- | --- |
@@ -403,7 +531,7 @@ VS Code 配合 gdb 可以实现代码编辑、断点调试等功能，适合后�
 
 ### 5.1 打开工程
 
-文件 → 打开文件夹 → 选择项目源码根目录（例如 `learn-slam-ch2`），不要打开 build 文件夹。
+文件 → 打开文件夹 → 选择项目源码根目录（例如 `/home/cyfer/SLAM-Learning/lecture_1~2`），不要打开 build 文件夹。
 
 ### 5.2 C/C++ 扩展配置：c_cpp_properties.json
 
@@ -427,7 +555,16 @@ VS Code 配合 gdb 可以实现代码编辑、断点调试等功能，适合后�
 }
 ```
 
-> `compile_commands.json` 由 CMake Tools 扩展生成，配置后可更准确地识别头文件路径。
+> 当前 `build` 中尚未生成 `compile_commands.json`，因此不能直接假定该文件存在。需要时可重新配置：
+
+```bash
+cd /home/cyfer/SLAM-Learning/lecture_1~2
+    cd /home/cyfer/SLAM-Learning/lecture_1~2/build
+    cmake .. -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    make
+```
+
+生成后再使用 `compileCommands` 配置；如果暂时不生成该文件，可以先删除这一行，C/C++ 扩展仍可使用 `compilerPath` 和 `cppStandard` 进行基本解析。
 
 ### 5.3 调试配置：launch.json（gdb 断点调试）
 
@@ -471,26 +608,26 @@ VS Code 配合 gdb 可以实现代码编辑、断点调试等功能，适合后�
 - `Shift+F11` 单步跳出函数  
 - `Shift+F5` 停止调试  
 
-> 断点失效排查：CMake 需设置 `CMAKE_BUILD_TYPE "Debug"`，Release 模式无调试信息，断点可能变灰无效。
+> 当前 `CMakeLists.txt` 设置了 `CMAKE_BUILD_TYPE "Debug"`，并且实际生成的 `build/useHello` 已包含调试信息。若切换了构建目录或构建变体，需重新构建后再启动调试。
 
 ### 5.4 CMake Tools 扩展使用
 
 安装扩展后，底部状态栏出现 CMake 工具条，常用功能：
 
-- **选择 Kit**：指定编译器为 g++ 13。  
+- **选择 Kit**：选择系统 GCC/G++ 工具链；可用 `g++ --version` 确认当前版本为 13.3.0。  
 - **构建变体**：切换 Debug/Release 模式。  
-- 🔧 **Configure**：执行 cmake 配置，等价于 `cmake ..`。  
-- 🔨 **Build**：执行编译，等价于 `make`。  
+- 🔧 **Configure**：执行 CMake 配置，等价于在 `build` 中执行 `cmake ..`。  
+- 🔨 **Build**：执行编译，等价于进入 `build` 后执行 `make`。  
 - ▶ **Run**：一键运行选中的可执行程序。  
 - 🐞 **Debug**：一键启动调试，无需手写 launch.json。
 
 ### 5.5 VS Code 常见问题
 
 1. **头文件有红色波浪线，但编译能通过**  
-   - 解决：执行 CMake Tools 的 Configure，生成 `compile_commands.json`；确认 `c_cpp_properties.json` 配置正确。  
+    - 解决：先确认 VS Code 打开的是 `/home/cyfer/SLAM-Learning/lecture_1~2` 源码根目录；执行 CMake Tools 的 Configure，或按上面的命令生成 `compile_commands.json`；确认 `c_cpp_properties.json` 配置正确。  
 2. **断点灰色不生效**  
    - 原因：CMake 是 Release 模式，没有调试符号。  
-   - 解决：切换为 Debug 构建变体，重新编译。
+    - 解决：切换为 Debug 构建变体，确认调试程序路径为 `${workspaceFolder}/build/useHello`，然后重新编译。
 
 ---
 
@@ -501,13 +638,13 @@ VS Code 配合 gdb 可以实现代码编辑、断点调试等功能，适合后�
 | 终端操作 | 找不到 vim 命令 | 系统未安装完整 vim | sudo apt update && sudo apt install vim |
 | 终端操作 | 直接输入 `..` 报错 | .. 是路径不是命令 | 搭配 cd 使用：`cd ..` |
 | 终端操作 | ./xxx 找不到文件 | 编译失败 / 文件名不匹配 | 检查编译报错；核对输出文件名 |
-| CMake 配置 | No SOURCES given to target | add_executable 缺源文件 | 补全源代码文件名参数 |
+| CMake 配置 | No SOURCES given to target | `add_executable()` 缺少源文件 | 补全源代码文件名参数 |
 | CMake 配置 | Cannot find source file | 文件名拼写错误 | 核对 CMakeLists 与实际文件名 |
-| CMake 配置 | 修改后旧错误依旧 | CMake 缓存未清理 | 删除 build 文件夹重建 |
+| CMake 配置 | 修改后旧错误依旧 | 配置未重新生成或缓存异常 | 先执行 `cmake ..`；仍异常再重建 `build` |
 | CMake 配置 | 版本过低警告 | cmake_minimum_required 版本低 | 提高到 3.10 及以上 |
 | C++ 编译 | cout 未声明 | 缺少 std 命名空间 | 加 std:: 前缀或 using namespace std |
 | 链接错误 | undefined reference to xxx | 未实现/未编译/未链接/拼写错 | 按常见原因逐条排查 |
-| VS Code | 头文件红色波浪线 | 索引未配置 | CMake Tools 执行 Configure |
+| VS Code | 头文件红色波浪线 | 工作区或索引未配置 | 打开源码根目录并执行 Configure；需要时生成 `compile_commands.json` |
 | VS Code | 断点不生效 | Release 模式无调试信息 | 切换 Debug 模式重新编译 |
 
 ---
@@ -522,8 +659,9 @@ VS Code 配合 gdb 可以实现代码编辑、断点调试等功能，适合后�
 
 ### 7.2 CMake 使用注意事项
 
-1. 修改 `CMakeLists.txt` 后，通常需要清除旧缓存才能生效。  
+1. 修改 `CMakeLists.txt` 后，先重新执行 `cmake` 配置和构建；只有缓存异常时才清理 `build`。  
 2. 优先采用外部构建（build 目录），避免在源码目录执行 `cmake .`。
+3. 当前 CMake 目标是 `helloslam`、`hello` 和 `useHello`；`build/main` 是手动执行 `g++ ../main.cpp -o main` 生成的产物，可以与 CMake 产物同时存在。
 
 ### 7.3 文件保存
 
