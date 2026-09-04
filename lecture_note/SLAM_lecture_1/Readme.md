@@ -1,4 +1,4 @@
-# Ubuntu 24.04 C++/CMake SLAM 入门操作与常见问题
+# Lecture1~2实践部分笔记——Ubuntu 24.04 C++/CMake SLAM 入门操作与常见问题
 
 > 内容依据《视觉SLAM十四讲》第2讲，覆盖终端和 VS Code 两种使用方式。  
 > 当前实际环境：Ubuntu 24.04、g++ 13、CMake 3.28，工程位于 `/home/cyfer/SLAM-Learning/lecture_1~2`。  
