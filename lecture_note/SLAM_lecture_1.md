@@ -187,9 +187,10 @@ g++ main.cpp -o main
 
 #### 问题 4：运行时提示 `bash: ./a.out: 没有那个文件或目录`
 
-- **两种原因**：
-  1. 编译失败：存在语法或链接错误，没有生成可执行文件（只要终端有红色报错，就不会产出程序）。  
-    2. 文件名不匹配：没有使用 `-o` 时生成的是 `a.out`，却执行了其他文件名；或者已经执行 `rm a.out` 删除了它。
+**两种原因**：
+
+- 编译失败：存在语法或链接错误，没有生成可执行文件（只要终端有红色报错，就不会产出程序）。  
+- 文件名不匹配：没有使用 `-o` 时生成的是 `a.out`，却执行了其他文件名；或者已经执行 `rm a.out` 删除了它。
 - **判断编译成功**：终端无任何输出、无红色报错，即为编译成功。
 
 #### 问题 5：`‘cout’ was not declared in this scope`
@@ -200,13 +201,15 @@ g++ main.cpp -o main
   - 方案 A（工程中更常用，减少命名冲突）：加 `std::` 前缀
 
     ```cpp
-  std::cout << "Hello SLAM" << std::endl;
+    std::cout << "Hello SLAM" << std::endl;
     ```
+
   - 方案 B（小型练习可用）：文件头引入全局命名空间  
-  ```cpp
-  #include <iostream>
-  using namespace std;
-  ```
+  
+    ```cpp
+    #include <iostream>
+    using namespace std;
+    ```
 
 > 补充：从性能角度，优先使用 `'\n'` 替代 `std::endl`；endl 会强制刷新 IO 缓冲区，在循环中频繁使用可能影响性能。
 
@@ -627,7 +630,7 @@ cd /home/cyfer/SLAM-Learning/lecture_1~2
     - 解决：先确认 VS Code 打开的是 `/home/cyfer/SLAM-Learning/lecture_1~2` 源码根目录；执行 CMake Tools 的 Configure，或按上面的命令生成 `compile_commands.json`；确认 `c_cpp_properties.json` 配置正确。  
 2. **断点灰色不生效**  
    - 原因：CMake 是 Release 模式，没有调试符号。  
-    - 解决：切换为 Debug 构建变体，确认调试程序路径为 `${workspaceFolder}/build/useHello`，然后重新编译。
+   - 解决：切换为 Debug 构建变体，确认调试程序路径为 `${workspaceFolder}/build/useHello`，然后重新编译。
 
 ---
 
