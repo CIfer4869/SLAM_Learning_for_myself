@@ -39,7 +39,7 @@ SLAM_Learning_for_myself/
 | --- | --- | --- |
 | `useEigen` | 固定尺寸矩阵、动态矩阵、矩阵运算、特征值和线性方程求解 | 终端输出矩阵和计时结果 |
 | `useGeometry` | 旋转矩阵、角轴、欧拉角、欧氏变换、四元数 | 终端输出旋转和位姿结果 |
-| `visualizeGeometry` | Pangolin 窗口、相机交互、坐标轴、旋转和平移信息显示 | 弹出 3D 可视化窗口 |
+| `visualizeGeometry` | Pangolin 窗口、相机交互、坐标轴、旋转和平移信息显示 | 弹出 3D 可视化交互窗口，实时显示旋转矩阵、平移、欧拉角和四元数 |
 
 建议先理解 `useEigen` 的矩阵类型，再学习 `useGeometry` 的位姿表示，最后阅读 `visualizeGeometry` 中如何把相机状态转换成 Eigen 的旋转矩阵、平移向量、欧拉角和四元数。
 
@@ -54,7 +54,7 @@ SLAM_Learning_for_myself/
 | CPU | AMD Ryzen 7 8845HS w/ Radeon 780M Graphics | 8 核 16 线程，可进行并行编译 |
 | 内存 | 约 7.4 GiB | Eigen 小型示例占用较少，但 Pangolin 构建不宜无限增加并行任务 |
 | Swap | 2.0 GiB | 内存不足时提供交换空间，但速度明显低于内存 |
-| 图形环境 | WSLg，`DISPLAY=:0`、`WAYLAND_DISPLAY=wayland-0` | 支持 Pangolin 图形窗口 |
+| 图形环境 | WSLg，`DISPLAY=:0`、`WAYLAND_DISPLAY=wayland-0` | 支持 Pangolin GUI 图形窗口 |
 | GPU | AMD Radeon 780M 集成显卡 | 当前不是 NVIDIA CUDA 环境，不能使用 `nvidia-smi` 判断 GPU |
 
 可以用下面的命令重新检查环境：
@@ -405,56 +405,69 @@ Eigen::Isometry3d::Identity();                    // 类型调用静态成员函
 
 ### 1. 当前程序做了什么
 
-`visualizeGeometry.cpp` 同时使用 Eigen 和 Pangolin。程序创建名为 `visualize geometry` 的 1000×600 窗口，启用深度测试，设置 `OpenGlRenderState` 和 `Handler3D`，然后在循环中：
+`visualizeGeometry.cpp` 同时使用 Eigen 和 Pangolin。程序通过下面的调用创建一个名为 `visualize geometry`、大小为 1000×600 的 GUI 窗口：
 
-1. 清空颜色和深度缓冲区。
+```cpp
+pangolin::CreateWindowAndBind("visualize geometry", 1000, 600);
+```
+
+随后启用深度测试，配置 `OpenGlRenderState` 和 `Handler3D`，在循环中完成以下工作：
+
+1. 清空颜色缓冲区和深度缓冲区。
 2. 获取 Pangolin 当前相机的 ModelView 矩阵。
-3. 将 OpenGL 的 4×4 矩阵拷贝到 Eigen 矩阵。
-4. 从矩阵中提取旋转矩阵、平移向量、欧拉角和四元数。
-5. 绘制彩色立方体和红、绿、蓝三条坐标轴。
-6. 调用 `pangolin::FinishFrame()` 刷新窗口。
+3. 将 OpenGL 的 4×4 矩阵手动拷贝到 Eigen 矩阵。
+4. 从矩阵中提取旋转矩阵、平移向量、欧拉角（rpy）和四元数。
+5. 绘制彩色立方体以及红、绿、蓝三条坐标轴。
+6. 调用 `pangolin::FinishFrame()` 完成一帧渲染。
 
-左侧 `ui` 面板中的 `ui.R`、`ui.t`、`ui.rpy` 和 `ui.q` 分别显示旋转矩阵、平移向量、欧拉角和四元数。鼠标拖动、平移或滚轮缩放相机时，这些数值会随相机状态更新。
+GUI 窗口分为左右两栏：
 
-源码中定义了 `RotationMatrix`、`TranslationVector` 和 `QuaternionDraw` 三个包装结构，并重载流输出运算符，使 Eigen 数据可以显示在 Pangolin 的 UI 变量中。
+- **左侧 UI 面板**：实时显示当前位姿，包括旋转矩阵 `R`、平移向量 `t`、欧拉角 `rpy` 和四元数 `q`；鼠标拖动改变视角时，数值同步更新。
+- **右侧视口**：渲染彩色立方体和 RGB 坐标轴，分别对应 X、Y、Z 轴；可以使用鼠标拖动旋转视角，使用滚轮缩放。
+
+运行效果如下：
+
+![Pangolin GUI 运行效果](GUI.png)
+
+WSL2 配合 WSLg 可以正常运行 Pangolin GUI。偶尔出现 `Failed to open X display` 时，可在 Windows 终端执行 `wsl --shutdown`，重新启动 WSL 后再运行程序。无头模式作为备选方式，用于图形环境不可用时验证位姿计算逻辑。
+
+源码中定义了 `RotationMatrix`、`TranslationVector` 和 `QuaternionDraw` 三个包装结构体，并重载流输出运算符，使 Eigen 位姿数据能够按照 Pangolin UI 变量所需的格式显示。
 
 #### Pangolin 示例中的 C++ 语法
 
-源码中的结构体定义：
+源码中的结构体定义如下：
 
 ```cpp
 struct TranslationVector
 {
-  Vector3d trans = Vector3d(0, 0, 0);
+    Vector3d trans = Vector3d(0, 0, 0);
 };
 ```
 
-`struct` 默认成员是 `public`，因此 Pangolin 可以直接访问 `t.trans`。`trans` 后面的初始化表达式是类内成员初始化，在创建对象时自动把它初始化为零向量。
+`struct` 默认成员访问权限为 `public`，因此 Pangolin 可以直接访问成员 `trans`。`trans` 后面的表达式是类内成员初始化；创建 `TranslationVector` 对象时，`trans` 自动初始化为零向量。
 
-输出运算符的重载形式如下：
+输出运算符重载如下：
 
 ```cpp
 ostream& operator<<(ostream& out, const TranslationVector& t)
 {
-  out << "=[" << t.trans(0) << ',' << t.trans(1) << ',' << t.trans(2) << "]";
-  return out;
+    out << "=[" << t.trans(0) << ',' << t.trans(1) << ',' << t.trans(2) << "]";
+    return out;
 }
 ```
 
-- `operator<<` 是函数名，表示重载输出运算符。
-- 返回 `ostream&`，所以可以连续写 `out << a << b`，并把同一个输出流返回给下一次调用。
-- `const TranslationVector& t` 使用常量引用，避免复制对象，同时保证函数不会修改 `t`。
-- `t.trans(0)` 调用了 Eigen 向量的 `operator()` 访问第一个分量。
+- `operator<<` 是流输出运算符重载函数，用于自定义打印格式。
+- 返回 `ostream&`，支持连续输出。
+- `const TranslationVector& t` 使用常量引用，避免对象拷贝，同时保证函数不修改输入对象。
+- `t.trans(0)` 调用 Eigen 向量重载的 `operator()`，读取向量第 0 个分量。
 
-输入运算符虽然当前函数体没有真正读取数据，但 Pangolin 的变量类型接口要求同时提供 `operator>>`，所以源码保留了对应的空实现。
-
-另外，`pangolin::Var<RotationMatrix>` 是模板类对象，尖括号中的类型告诉 Pangolin 这个 UI 变量保存什么数据；`CreateDisplay().SetBounds(...).SetHandler(...)` 是链式调用，每个成员函数返回当前对象或其引用，因此可以连续设置显示区域和鼠标事件处理器。
+输入运算符没有实际的读取逻辑，但 Pangolin 的自定义 UI 变量要求成对提供输入、输出运算符，因此源码保留空的 `operator>>`。`pangolin::Var<RotationMatrix>` 为模板类对象，尖括号指定 UI 变量存储的数据类型。`CreateDisplay().SetBounds(...).SetHandler(...)` 为链式调用，依次配置视口范围和鼠标交互处理器。
 
 ### 2. 编译报错：TIFF 未定义引用
 
 #### 错误现象
 
-链接阶段出现大量`undefined reference to TIFF...`错误：
+编译链接阶段曾出现大量 `undefined reference to TIFF...`：
 
 ```text
 /usr/local/lib/libpango_image.so: undefined reference to `TIFFSetWarningHandler'
@@ -465,30 +478,15 @@ collect2: error: ld returned 1 exit status
 
 #### 根本原因
 
-- Pangolin的`libpango_image.so`内部依赖libtiff，但自身未正确记录该动态依赖。
-- GNU链接器默认启用`--as-needed`，当主程序未直接使用tiff函数时，链接器会丢弃`-ltiff`选项，导致pango_image内部的TIFF符号无法解析。
-- 仅调整库顺序往往无效，因为`--as-needed`会直接忽略未被主程序引用的库。
+- Pangolin 的图像模块 `libpango_image.so` 内部依赖 libtiff，但库本身没有正确传递该依赖。
+- GNU 链接器默认开启 `--as-needed`；主程序没有直接调用 TIFF 接口时，链接器可能丢弃 libtiff，造成符号缺失。
+- 单纯调整库链接顺序不一定有效，需要临时关闭该选项并显式引入 TIFF 库。
 
-#### 解决方案：强制保留tiff库
+#### 解决方案：强制保留 TIFF 链接依赖
 
-##### 方案 A：CMake 中配置（推荐）
+修改 `CMakeLists.txt`，使用 `-Wl,--no-as-needed` 临时保留 TIFF 依赖，之后恢复链接器默认行为：
 
 ```cmake
-cmake_minimum_required(VERSION 3.10)
-project(visualizeGeometry)
-set(CMAKE_CXX_STANDARD 17)
-
-find_package(Eigen3 REQUIRED)
-find_package(Pangolin REQUIRED)
-
-include_directories(
-    ${EIGEN3_INCLUDE_DIR}
-    ${Pangolin_INCLUDE_DIRS}
-)
-
-add_executable(visualizeGeometry visualizeGeometry.cpp)
-
-# 关键：关闭as-needed，保留tiff，然后再开启
 target_link_libraries(visualizeGeometry
     -Wl,--no-as-needed
     tiff
@@ -497,9 +495,9 @@ target_link_libraries(visualizeGeometry
 )
 ```
 
-`-Wl,` 表示把后面的选项传给链接器；`--no-as-needed` 和 `--as-needed` 成对使用，可以把影响限制在 TIFF 这一段链接参数附近。
+`-Wl,` 表示把参数传递给链接器；两个选项成对设置，将 `--no-as-needed` 的影响限制在 TIFF 库附近。
 
-##### 方案 B：直接使用 g++ 命令行编译
+也可以直接使用命令行编译：
 
 ```bash
 g++ -std=c++17 visualizeGeometry.cpp -o visualizeGeometry \
@@ -508,20 +506,28 @@ g++ -std=c++17 visualizeGeometry.cpp -o visualizeGeometry \
   $(pkg-config --libs pangolin)
 ```
 
-#### 编译命令
+重新构建并运行：
 
 ```bash
 cd ~/SLAM_Learning_for_myself/lecture_files/lecture_3/visualizeGeometry
 rm -rf build && mkdir build && cd build
 cmake ..
-make -j4
+cmake --build . --parallel 4
+./visualizeGeometry
 ```
 
----
+### 3. WSL2-WSLg 图形显示
 
-### 3. WSL2 GUI 显示问题与 WSLg 解决
+WSLg 可以将 Linux 图形程序显示在 Windows 桌面上。确认 `DISPLAY=:0` 和 `WAYLAND_DISPLAY=wayland-0` 等环境变量存在后，直接运行：
 
-#### 报错：Pangolin X11: Failed to open X display
+```bash
+cd ~/SLAM_Learning_for_myself/lecture_files/lecture_3/visualizeGeometry/build
+./visualizeGeometry
+```
+
+正常情况下会弹出 Pangolin 3D 交互窗口。左侧面板显示 `R`、`t`、`rpy` 和 `q`，右侧视口显示彩色立方体和 RGB 坐标轴。
+
+如果出现下面的错误：
 
 ```text
 terminate called after throwing an instance of 'std::runtime_error'
@@ -529,78 +535,40 @@ terminate called after throwing an instance of 'std::runtime_error'
 Aborted
 ```
 
-程序编译成功，但运行时报错，原因是WSL2默认无X显示服务器，无法打开图形窗口。  
+可以在 Windows 终端执行：
 
-##### 最佳解决方案：使用 WSLg（Windows Subsystem for Linux GUI）
-
-#### WSLg 简介
-
-WSLg是微软为WSL2提供的原生图形支持，基于Wayland和XWayland，可将Linux GUI应用直接显示在Windows桌面上，无需安装第三方X服务器（如VcXsrv、Xming），零配置、性能更好。
-
-#### 前提条件
-
-- Windows 10 版本 21H2 或更高，或 Windows 11。
-- WSL版本 ≥ 0.5.67（可通过`wsl --version`查看）。
-- 当前实例已经暴露 `DISPLAY=:0`、`WAYLAND_DISPLAY=wayland-0` 和 `WSL2_GUI_APPS_ENABLED=1`，说明 WSLg 环境变量已注入；如果本机没有这些变量，不要直接假设 Pangolin 能打开窗口。
-- 确保WSL已更新：在PowerShell（管理员）中执行：
-
-  ```powershell
-  wsl --update
-  wsl --shutdown
-  ```
-
-#### 使用步骤
-
-1. **确保没有安装或已卸载第三方X服务器**（如VcXsrv、Xming），避免端口冲突。
-2. 重新打开WSL Ubuntu终端，**不要手动设置`DISPLAY`环境变量**，WSLg会自动处理。
-3. 直接运行程序：
-
-   ```bash
-   cd ~/SLAM_Learning_for_myself/lecture_files/lecture_3/visualizeGeometry/build
-   ./visualizeGeometry
-   ```
-
-   若一切正常，会弹出Pangolin的3D可视化窗口。
-
-#### 验证WSLg是否工作
-
-安装并运行xeyes测试：
-
-```bash
-sudo apt install x11-apps
-xeyes
+```powershell
+wsl --shutdown
 ```
 
-若出现跟随鼠标的眼睛窗口，说明WSLg正常。
+重新启动 WSL 后再次运行程序。这个问题属于图形会话或显示服务未恢复，重启 WSL 后通常可以恢复。`xeyes` 可以用来检查基础 X11 图形链路，但它能运行并不代表 Pangolin 的 OpenGL 窗口一定已经初始化成功。
 
-#### 注意事项
+### 4. Pangolin 无头模式（备选）
 
-- 若之前手动设置过`DISPLAY`，需在`~/.bashrc`中删除相关设置，并执行`source ~/.bashrc`或重启终端。
-- 若WSLg仍失败，可尝试在PowerShell中执行`wsl --update`更新至最新版本。
-
----
-
-### 4. 兜底方案：Pangolin 无头模式
-
-若无需实时GUI窗口，仅调试算法逻辑，可使用Pangolin的无头模式（headless），完全脱离X服务器运行。
-
-#### 修改方式
-
-在`visualizeGeometry.cpp`中修改窗口创建代码：
+当 GUI 图形环境暂时不可用时，可以使用 Pangolin 无头模式验证 Eigen 矩阵变换和位姿提取逻辑。不同 Pangolin 版本的 headless 参数接口可能不同，下面的写法适用于支持 `pangolin::Params` 的版本：
 
 ```cpp
-// 原代码
-
-// pangolin::CreateWindowAndBind("Geometry", 640, 480);
-// 无头模式
-pangolin::CreateWindowAndBind("Geometry", 640, 480, pangolin::PARAM_HEADLESS);
+pangolin::Params params;
+params.Set("pangolin.window", "headless");
+pangolin::CreateWindowAndBind("visualize geometry", 1000, 600, params);
 ```
 
-重新编译运行，程序将正常执行所有逻辑，但不显示窗口。
+其余 OpenGL 渲染、矩阵提取和绘制代码可以保持不变。由于无头模式没有窗口退出事件，`pangolin::ShouldQuit()` 可能一直返回 `false`，应增加帧计数让程序自动结束：
 
-无头模式适用于服务器环境或自动化测试。
+```cpp
+int frame_count = 0;
+while (!pangolin::ShouldQuit())
+{
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // 相机激活、矩阵提取和绘制逻辑保持不变
+    pangolin::FinishFrame();
+    ++frame_count;
+    if (frame_count >= 1)
+        break;
+}
+```
 
-不同 Pangolin 版本对 headless 后端和 OpenGL 上下文的支持可能不同；如果仍然初始化失败，应检查 Pangolin 构建选项，或把需要窗口的渲染部分进一步隔离。
+也可以调用 `pangolin::SaveFramebufferToFile("result.png")` 保存渲染帧，实际效果取决于 Pangolin 的构建选项。无头模式只作为 GUI 异常时的备选方案，本实验的标准运行结果仍是 WSLg 下的 Pangolin 交互窗口。
 
 ---
 
@@ -672,7 +640,7 @@ pkg-config --cflags --libs pangolin
 | `Unable to locate package libeigen` | apt安装 | 包名错误 | 使用`libeigen3-dev` |
 | `fatal error: Eigen/Dense: No such file` | 编译期 | 未配置Eigen头文件路径 | `include_directories(/usr/include/eigen3)` 或 `target_include_directories` |
 | `undefined reference to TIFFxxx` | 链接期 | tiff库被`--as-needed`丢弃 | 链接时加入`-Wl,--no-as-needed -ltiff -Wl,--as-needed` |
-| `Failed to open X display` | 运行期 | 无X显示服务器 | 使用WSLg或Pangolin无头模式 |
+| `Failed to open X display` | 运行期 | WSLg 图形会话未正常恢复 | 执行 `wsl --shutdown` 重启 WSL；仍不可用时使用 Pangolin 无头模式 |
 | `DISPLAY`环境变量冲突 | 运行期 | 手动设置错误DISPLAY | 删除`~/.bashrc`中的DISPLAY设置 |
 
 ---
@@ -691,16 +659,18 @@ cmake ..
 make -j4
 
 # ========== 3. 运行程序（WSLg方案）==========
-# 确保WSL已更新，且未安装第三方X服务器
 ./visualizeGeometry
 
-# ========== 4. GUI异常排查 ==========
-# 测试WSLg是否正常工作
+# ========== 4. GUI异常处理 ==========
+# 若出现 Failed to open X display，在 Windows 终端执行 wsl --shutdown
+# 重启 WSL 后重新运行程序
+
+# 可选：测试基础 X11 图形链路
 sudo apt install x11-apps
 xeyes
 
-# ========== 5. 无头模式（可选）==========
-# 修改源码后重新编译运行，不显示窗口
+# ========== 5. 无头模式（备选）==========
+# 修改源码后重新编译运行，不显示交互窗口
 ```
 
 ---
@@ -723,7 +693,7 @@ xeyes
 - **Eigen**：header-only库，只需`include_directories`，无需链接。
 - **CMake**：现代写法推荐`find_package`+`target_*`，提高可移植性。
 - **Pangolin TIFF错误**：根源是`--as-needed`，通过`-Wl,--no-as-needed`显式保留tiff解决。
-- **WSL2 GUI**：优先使用WSLg，简单可靠；若不需要窗口，使用Pangolin无头模式。
+- **WSL2 GUI**：优先使用 WSLg；偶尔出现显示错误时执行 `wsl --shutdown` 重启 WSL，无头模式作为备选方案。
 - **其他建议**：
   - 养成在`build`目录中构建的习惯，保持源码目录整洁。
   - 使用`-j4`加速编译（多核并行）。
