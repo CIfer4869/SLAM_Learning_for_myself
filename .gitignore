@@ -1,6 +1,24 @@
-build/
+# ========== CMake编译产物 ==========
+**/build/
 cmake-build-*/
 CMakeFiles/
 CMakeCache.txt
 Makefile
 cmake_install.cmake
+*.o
+*.a
+*.so
+
+# ========== 压缩包、临时文件 ==========
+*.zip
+*.tar.gz
+*.tmp
+
+# ========== VSCode：保留tasks/launch配置，仅忽略缓存日志 ==========
+.vscode/*.log
+.vscode/.cache
+.vscode/**.tmp
+
+# ========== 系统、日志垃圾 ==========
+.DS_Store
+*.log

@@ -1,8 +1,8 @@
-# Ubuntu 24.04 C++/CMake SLAM 入门操作与常见问题
+# Lecture 1~2 实践笔记：WSL2/Ubuntu C++/CMake SLAM 入门操作与常见问题
 
 > 内容依据《视觉SLAM十四讲》第2讲，覆盖终端和 VS Code 两种使用方式。  
-> 当前实际环境：Ubuntu 24.04、g++ 13、CMake 3.28，工程位于 `/home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2`。
-> 当前工程已经包含单文件程序、静态库和两个 CMake 可执行目标；本文中的命令和文件名均按这个实际工程整理。  
+> 当前实际环境：WSL2 + Ubuntu 26.04 LTS，g++ 15.2.0、CMake 4.2.3；WSL 可见硬件资源为 8 核 16 线程、约 7.4 GiB 内存和 2 GiB Swap。工程位于 `/home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2`。
+> 当前工程已经包含单文件程序、静态库和两个 CMake 可执行目标；本文中的命令和文件名均按这个实际工程整理。构建产物会随是否执行过 CMake 而变化，以下目录树会明确区分源码、手动编译产物和 CMake 产物。  
 > 建议使用外部构建（out-of-source build），将 `build` 目录与源码目录分离，避免在源码目录直接执行 `cmake .`。
 
 ## 先看当前实际状态
@@ -11,7 +11,7 @@
 
 | 内容 | 实际路径 | 用途 |
 | --- | --- | --- |
-| 本讲义 | `/home/cyfer/SLAM_Learning_for_myself/lecture_note/SLAM_lecture_1/Readme.md` | 学习记录 |
+| 本讲义 | `/home/cyfer/SLAM_Learning_for_myself/lecture_note/SLAM_lecture_1~2/Readme.md` | 学习记录 |
 | C++ 工程源码根目录 | `/home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2` | CMake 的源码目录 |
 | CMake 构建目录 | `/home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2/build` | 编译缓存、目标文件、库和程序 |
 
@@ -24,18 +24,12 @@
 ├── hello.h              # printHello() 函数声明
 ├── libhello.cpp         # printHello() 函数实现
 ├── useHello.cpp         # 调用静态库的程序
-└── build/               # 已存在的外部构建目录，不放源码
-    ├── helloslam        # CMake 目标：由 main.cpp 生成
-    ├── useHello         # CMake 目标：由 useHello.cpp + libhello.a 生成
-    ├── libhello.a       # CMake 目标 hello 生成的静态库
-    ├── main             # 手动编译 main.cpp 产生的可执行文件
-    ├── CMakeCache.txt   # CMake 配置缓存
+└── build/               # 外部构建目录；内容由 CMake 配置和构建后生成
     ├── CMakeFiles/      # CMake 内部文件
-    ├── Makefile         # CMake 生成的 make 构建文件
-    └── cmake_install.cmake
+    └── Debug/           # 当前目录中保留的构建变体目录
 ```
 
-这里要特别区分两个阶段：`main.cpp` 是源文件；第一步手动编译可以生成 `main` 或 `a.out`；后面执行当前 `CMakeLists.txt` 后，CMake 生成的是 `helloslam`、`useHello` 和 `libhello.a`。如果你在 `build` 目录中执行过 `g++ ../main.cpp -o main`，就会得到当前看到的 `build/main`。CMake 不会使用它，也不会自动删除它。
+这里要特别区分三个位置：`main.cpp` 是源文件；当前源码根目录中的 `main` 是手动执行 g++ 后留下的可执行文件；CMake 配置成功并执行构建后，才会在构建目录中生成 `helloslam`、`useHello` 和 `libhello.a`。当前 `build` 目录尚未保留这些顶层产物，因此不能把它们写成“当前已经存在”的文件。CMake 不会使用源码根目录中的手动编译产物，也不会自动删除它。
 
 可以用下面的命令重新确认状态：
 
@@ -44,6 +38,43 @@ cd /home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2
 find . -maxdepth 1 -type f -printf '%f\n' | sort
 find build -maxdepth 1 -type f -printf '%f\n' | sort
 ```
+
+### 当前实际系统与硬件资源
+
+以下信息来自当前 WSL2 实例，表示 Linux/WSL 能够看到的资源，不一定等于 Windows 宿主机的完整硬件配置：
+
+| 项目 | 当前值 | 说明 |
+| --- | --- | --- |
+| 系统 | Ubuntu 26.04 LTS | 运行在 WSL2 中 |
+| WSL 内核 | `6.18.33.2-microsoft-standard-WSL2` | WSL2 虚拟化内核 |
+| CPU | AMD Ryzen 7 8845HS w/ Radeon 780M Graphics | WSL 可见 8 核 16 线程 |
+| 内存 | 总计约 7.4 GiB | 当前 WSL 实例可用内存，可能受 WSL 配置限制 |
+| Swap | 2.0 GiB | WSL 交换空间 |
+| 根文件系统 | 约 1007 GiB | 当前 `/` 所在虚拟磁盘容量 |
+| 图形环境 | WSLg 可用 | `DISPLAY=:0`、`WAYLAND_DISPLAY=wayland-0` |
+| GPU | Radeon 780M 集成显卡 | 当前 `nvidia-smi` 不可用，不应按 NVIDIA CUDA 环境配置 |
+
+硬件和资源信息可以用下面的命令重新确认：
+
+```bash
+# 查看系统和 WSL 内核
+cat /etc/os-release
+uname -a
+
+# 查看 CPU 核心、线程和型号
+lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket'
+
+# 查看内存和 Swap
+free -h
+
+# 查看根文件系统空间
+df -h /
+
+# 查看 NVIDIA GPU；没有 NVIDIA 环境时可能提示命令不存在
+nvidia-smi
+```
+
+由于当前 WSL 只分配约 7.4 GiB 内存，编译时建议使用 `make -j4` 或 `cmake --build build --parallel 4`，不建议盲目使用 `-j16`；并行任务过多会同时占用更多内存，可能导致系统使用 Swap 或编译变慢。磁盘空间充足，但 `build` 目录仍应定期清理，避免缓存和中间文件长期堆积。
 
 ---
 
@@ -135,7 +166,7 @@ rm a.out
 
 **输出结果**：`./a.out` 和 `./main` 都会显示 `Hello SLAM`。`a.out` 是默认名称，`main` 是通过 `-o main` 指定的名称。它们都是手动编译产物，不属于 CMake 生成结果；`a.out` 通常可以删除，`main` 可以暂时保留用于对照。
 
-> 说明：不写 `-o` 时，g++ 默认生成 `a.out`；写成 `-o main` 时生成 `main`。Linux 运行当前目录中的程序需要加 `./`。如果在 `build` 目录中编译，应使用 `g++ ../main.cpp -o main`，此时文件就是当前实际存在的 `build/main`。
+> 说明：不写 `-o` 时，g++ 默认生成 `a.out`；写成 `-o main` 时生成 `main`。Linux 运行当前目录中的程序需要加 `./`。如果在 `build` 目录中编译，应使用 `g++ ../main.cpp -o main`，生成的文件会位于当前 `build` 目录；它仍然是手动编译产物，不属于 CMake 目标。
 
 如果你是在 `build` 目录中完成第一步，流程对应如下：
 
@@ -247,6 +278,14 @@ target_link_libraries(useHello hello)
 set(CMAKE_BUILD_TYPE "Debug")
 ```
 
+当前 `CMakeLists.txt` 没有显式设置 `CMAKE_CXX_STANDARD`，因此 CMake 不会主动加入 `-std=c++17`；示例代码使用的语法在当前 g++ 默认配置下可以编译。如果希望工程固定使用某个标准，应在 `project()` 后明确写入：
+
+```cmake
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+```
+
 文件与目标的对应关系：
 
 | CMake 配置 | 生成结果 | 作用 |
@@ -274,7 +313,7 @@ cd build
 cmake ..
 
 # 5. 执行编译
- make
+make
 
 # 6. 确认并运行当前 CMake 目标
 ls -l helloslam useHello libhello.a
@@ -470,7 +509,7 @@ cd build
 cmake ..
 
 # 4. 编译
- make
+make
 
 # 5. 查看 CMake 生成的产物
 ls -l helloslam useHello libhello.a
@@ -489,7 +528,7 @@ ls -l helloslam useHello libhello.a
 ```bash
 cd /home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2/build
 cmake ..
- make
+make
 ```
 
 只有缓存异常、切换编译器或需要彻底重来时，才清空 `build`：
@@ -503,7 +542,7 @@ cmake ..
 make
 ```
 
-删除 `build` 只会删除构建产物，不会影响源码目录中的五个源文件。当前目录中的 `build/main` 是手动编译留下的旧文件，清理后不会重新生成。
+删除 `build` 只会删除 CMake 缓存和构建产物，不会影响源码目录中的五个源文件。源码根目录中的 `main` 是手动编译留下的文件，不在 CMake 的管理范围内；删除 `build` 不会删除它。
 
 ### 4.6 链接错误排查
 
@@ -534,13 +573,15 @@ VS Code 配合 gdb 可以实现代码编辑、断点调试等功能，适合后�
 
 ### 5.1 打开工程
 
-文件 → 打开文件夹 → 选择项目源码根目录（例如 `/home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2`），不要打开 build 文件夹。
+当前 VS Code 工作区根目录是 `/home/cyfer/SLAM_Learning_for_myself`，仓库根目录下的 `.vscode` 包含当前活动文件编译和调试配置。学习本讲时可以直接使用这个工作区；如果希望 CMake Tools 只管理本工程，也可以单独打开 `/home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2`，但这时应重新选择或生成对应的 VS Code 配置。
+
+无论使用哪种方式，都不要把 `build` 目录单独作为工作区打开；源码文件和 `CMakeLists.txt` 位于 `lecture_files/lecture_1~2`。
 
 ### 5.2 C/C++ 扩展配置：c_cpp_properties.json
 
 用于配置代码解析、编译器路径、头文件索引，解决头文件红色波浪线、代码跳转失效等问题。
 
-按 `Ctrl+Shift+P`，输入 `C/C++: Edit Configurations (JSON)`，自动生成 `.vscode/c_cpp_properties.json`，修改为：
+当前仓库实际的 `.vscode/c_cpp_properties.json` 使用工作区范围的头文件搜索路径，并额外加入 Eigen 路径：
 
 ```json
 {
@@ -549,51 +590,52 @@ VS Code 配合 gdb 可以实现代码编辑、断点调试等功能，适合后�
             "name": "Linux",
             "intelliSenseMode": "linux-gcc-x64",
             "compilerPath": "/usr/bin/g++",
-            "cStandard": "c17",
-            "cppStandard": "c++17",
-            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/include/eigen3"
+            ],
+            "defines": []
         }
     ],
     "version": 4
 }
 ```
 
-> 当前 `build` 中尚未生成 `compile_commands.json`，因此不能直接假定该文件存在。需要时可重新配置：
+当前配置没有使用 `compile_commands.json`。如果希望让 IntelliSense 读取 CMake 的真实编译参数，可以在源码工程目录执行：
 
 ```bash
 cd /home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2
-    cd /home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2/build
-    cmake .. -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-    make
+cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake --build build
 ```
 
-生成后再使用 `compileCommands` 配置；如果暂时不生成该文件，可以先删除这一行，C/C++ 扩展仍可使用 `compilerPath` 和 `cppStandard` 进行基本解析。
+然后把 `compileCommands` 配置为 `${workspaceFolder}/lecture_files/lecture_1~2/build/compile_commands.json`（当前工作区为仓库根目录）。如果单独打开源码工程，则使用 `${workspaceFolder}/build/compile_commands.json`。
 
 ### 5.3 调试配置：launch.json（gdb 断点调试）
 
 用于配置 gdb 调试器，实现断点、单步运行、变量查看。
 
-按 `Ctrl+Shift+D` 打开调试面板，点击“创建 launch.json”，选择 `C++ (GDB/LLDB)`，修改为：
+当前仓库实际的 `launch.json` 使用 `${fileDirname}/${fileBasenameNoExtension}`，即调试当前活动文件对应的可执行文件，而不是固定调试 `build/useHello`：
 
 ```json
 {
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug useHello",
+            "name": "(gdb) 启动",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/useHello",
+            "program": "${fileDirname}/${fileBasenameNoExtension}",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
+            "cwd": "${fileDirname}",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [
                 {
-                    "description": "启用 gdb 整齐打印",
-                    "text": "-enable-pretty-printing on",
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
                     "ignoreFailures": true
                 }
             ]
@@ -611,26 +653,46 @@ cd /home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2
 - `Shift+F11` 单步跳出函数  
 - `Shift+F5` 停止调试  
 
-> 当前 `CMakeLists.txt` 设置了 `CMAKE_BUILD_TYPE "Debug"`，并且实际生成的 `build/useHello` 已包含调试信息。若切换了构建目录或构建变体，需重新构建后再启动调试。
+> 该调试配置要求当前活动文件旁边已经存在同名可执行文件。例如打开 `main.cpp` 时，先用任务生成 `main`，再启动 gdb；它不会自动构建 CMake 目标 `useHello`。
 
-### 5.4 CMake Tools 扩展使用
+### 5.4 当前任务配置：tasks.json
+
+仓库根目录的 `.vscode/tasks.json` 当前配置的是“编译活动文件”任务，核心命令相当于：
+
+```bash
+/usr/bin/g++ -g 当前文件.cpp \
+    -o 当前文件所在目录/当前文件名 \
+    -I/usr/include/eigen3 -std=c++11
+```
+
+这个任务有几个需要注意的地方：
+
+- `${file}` 表示当前在编辑器中打开的文件。
+- `${fileDirname}` 表示当前文件所在目录，`${fileBasenameNoExtension}` 表示去掉扩展名后的文件名。
+- 输出文件会生成在源文件旁边，所以它适合单文件练习，不等同于 CMake 的外部构建流程。
+- `-std=c++11` 是当前任务显式指定的语言标准；它与 `CMakeLists.txt` 中未固定标准的配置并不相同。
+- `-I/usr/include/eigen3` 对本讲 Hello SLAM 工程不是必须的，是为了兼容其他 Eigen 示例的活动文件编译。
+
+因此，使用这个任务编译 `useHello.cpp` 不能生成可运行的完整静态库程序；`useHello.cpp` 依赖 `hello.h` 的声明和 `libhello.cpp` 中的函数实现，应该使用 CMake 构建并链接 `hello` 库。
+
+### 5.5 CMake Tools 扩展使用
 
 安装扩展后，底部状态栏出现 CMake 工具条，常用功能：
 
-- **选择 Kit**：选择系统 GCC/G++ 工具链；可用 `g++ --version` 确认当前版本为 13.3.0。  
+- **选择 Kit**：选择系统 GCC/G++ 工具链；当前环境可用 `g++ --version` 确认版本为 15.2.0。  
 - **构建变体**：切换 Debug/Release 模式。  
 - 🔧 **Configure**：执行 CMake 配置，等价于在 `build` 中执行 `cmake ..`。  
 - 🔨 **Build**：执行编译，等价于进入 `build` 后执行 `make`。  
 - ▶ **Run**：一键运行选中的可执行程序。  
 - 🐞 **Debug**：一键启动调试，无需手写 launch.json。
 
-### 5.5 VS Code 常见问题
+### 5.6 VS Code 常见问题
 
 1. **头文件有红色波浪线，但编译能通过**  
     - 解决：先确认 VS Code 打开的是 `/home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2` 源码根目录；执行 CMake Tools 的 Configure，或按上面的命令生成 `compile_commands.json`；确认 `c_cpp_properties.json` 配置正确。
 2. **断点灰色不生效**  
-   - 原因：CMake 是 Release 模式，没有调试符号。  
-   - 解决：切换为 Debug 构建变体，确认调试程序路径为 `${workspaceFolder}/build/useHello`，然后重新编译。
+    - 原因：当前 CMakeLists 设置为 Debug；如果实际使用了其他构建目录或 Release 配置，可能没有调试符号。  
+    - 解决：确认当前活动文件对应的可执行文件已经生成，并检查 `launch.json` 中的 `program` 是否仍为 `${fileDirname}/${fileBasenameNoExtension}`；如果要调试 `useHello`，应另行配置固定的 CMake 目标路径。
 
 ---
 
@@ -664,7 +726,7 @@ cd /home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2
 
 1. 修改 `CMakeLists.txt` 后，先重新执行 `cmake` 配置和构建；只有缓存异常时才清理 `build`。  
 2. 优先采用外部构建（build 目录），避免在源码目录执行 `cmake .`。
-3. 当前 CMake 目标是 `helloslam`、`hello` 和 `useHello`；`build/main` 是手动执行 `g++ ../main.cpp -o main` 生成的产物，可以与 CMake 产物同时存在。
+3. 当前 CMake 目标是 `helloslam`、`hello` 和 `useHello`；手动执行 `g++ ../main.cpp -o main` 生成的 `main` 只属于手动编译流程，可以与 CMake 产物同时存在。
 
 ### 7.3 文件保存
 
