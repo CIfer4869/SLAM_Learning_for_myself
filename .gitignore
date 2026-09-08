@@ -14,10 +14,8 @@ cmake_install.cmake
 *.tar.gz
 *.tmp
 
-# ========== VSCode：保留tasks/launch配置，仅忽略缓存日志 ==========
-.vscode/*.log
-.vscode/.cache
-.vscode/**.tmp
+# ========= IDE配置文件 ==========
+.vscode
 
 # ========== 系统、日志垃圾 ==========
 .DS_Store
