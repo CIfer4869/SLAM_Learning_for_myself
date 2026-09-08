@@ -1,6 +1,6 @@
-# ========== CMake编译产物 ==========
+# ========= CMake编译产物 =========
 **/build/
-cmake-build-*/
+**/build-*/
 CMakeFiles/
 CMakeCache.txt
 Makefile
@@ -8,15 +8,17 @@ cmake_install.cmake
 *.o
 *.a
 *.so
+*.out
 
-# ========== 压缩包、临时文件 ==========
+# ========= VSCode本地配置，不提交个人IDE设置 =========
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/settings.json
+.vscode/tasks.json
+
+# ========= 压缩包、临时文件 =========
 *.zip
 *.tar.gz
 *.tmp
-
-# ========= IDE配置文件 ==========
-.vscode
-
-# ========== 系统、日志垃圾 ==========
-.DS_Store
 *.log
+.DS_Store
