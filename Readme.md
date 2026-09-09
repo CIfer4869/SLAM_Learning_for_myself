@@ -33,6 +33,12 @@
 
 [阅读第 3 讲详细笔记](./lecture_note/SLAM_lecture_3/Readme.md)
 
+### SLAM 常用函数速查
+
+这是一份以功能模块为主线的 Eigen 库常用函数速查笔记，整理矩阵、几何、位姿相关的常用类型和函数，并预留后续功能模块目录，便于逐步扩展可视化、图像处理、优化等内容。
+
+[阅读 SLAM 常用函数速查笔记](./lecture_note/SLAM_常用函数/Readme.md)
+
 ## 工程目录
 
 ```text
@@ -42,8 +48,9 @@ SLAM_Learning_for_myself/
 │   └── lecture_3/         # Eigen、几何变换和 Pangolin 示例
 ├── lecture_note/
 │   ├── SLAM_lecture_1~2/  # 第 1~2 讲笔记
-│   └── SLAM_lecture_3/    # 第 3 讲笔记
+│   ├── SLAM_lecture_3/    # 第 3 讲笔记
+│   └── SLAM_常用函数/     # Eigen 常用函数速查笔记
 └── Readme.md
 ```
 
-后续讲次会继续补充到 `lecture_note` 和 `lecture_files` 目录中。
+后续讲次会继续补充到 `lecture_note` 和 `lecture_files` 目录中，函数会整理到 `lecture_files/SLAM_常用函数`。
