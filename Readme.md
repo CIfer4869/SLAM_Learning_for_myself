@@ -49,7 +49,7 @@ SLAM_Learning_for_myself/
 ├── lecture_note/
 │   ├── SLAM_lecture_1~2/  # 第 1~2 讲笔记
 │   ├── SLAM_lecture_3/    # 第 3 讲笔记
-│   └── SLAM_常用函数/     # Eigen 常用函数速查笔记
+│   └── SLAM_常用函数/      # SLAM常用函数速查笔记
 └── Readme.md
 ```
 
