@@ -382,26 +382,23 @@ Eigen::Vector3d v_transformed = T * v;
 
 齐次变换矩阵可以写成：
 
-$$
-T = \begin{bmatrix} R & t \\ 0 & 1 \end{bmatrix}
-$$
+```text
+T = [ R  t ]
+    [ 0  1 ]
+```
 
 对应点的齐次坐标写法为：
 
-$$
-\begin{bmatrix} v' \\ 1 \end{bmatrix}
-=
-\begin{bmatrix} R & t \\ 0 & 1 \end{bmatrix}
-\begin{bmatrix} v \\ 1 \end{bmatrix}
-=
-\begin{bmatrix} Rv + t \\ 1 \end{bmatrix}
-$$
+```text
+[ v' ] = [ R  t ] [ v ]
+[  1 ]   [ 0  1 ] [ 1 ]
+```
 
-所以三维空间中的欧氏形式可以写为：
+等价地，三维空间中的欧氏形式可以写为：
 
-$$
+```text
 v' = Rv + t
-$$
+```
 
 这里 `T.matrix()` 返回 4×4 矩阵，`T.rotation()` 和 `T.translation()` 分别访问内部旋转和平移部分。阅读 `rotate`、`pretranslate` 等接口时要注意乘法方向和坐标系约定；在 SLAM 中，明确变换是“世界到相机”还是“相机到世界”非常重要。
 
