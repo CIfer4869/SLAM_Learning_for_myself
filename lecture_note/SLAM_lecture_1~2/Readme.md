@@ -775,12 +775,116 @@ make
 
 ---
 
-## 八、后续可学习内容
+### 7.9 参考当前工程文件的库与头文件写法
 
-可以按以下顺序继续学习：
+当前工程源码目录中的真实文件已经说明了“自写库和头文件”的最小结构：
 
-1. 共享库（SHARED）编译与使用。  
-2. `find_package()` 导入第三方库（如 Eigen、OpenCV）。  
-3. 库的安装与导出（`install()` 指令）。  
-4. 多子目录 CMake 工程结构。  
-5. 编译选项、警告等级、C++ 标准配置。
+```text
+/home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2/
+├── hello.h
+├── libhello.cpp
+├── useHello.cpp
+├── main.cpp
+└── CMakeLists.txt
+```
+
+其中：
+
+- `hello.h` 负责声明函数接口：
+
+```cpp
+#ifndef HELLO_H_
+#define HELLO_H_
+
+void printHello();
+
+#endif
+```
+
+- `libhello.cpp` 负责实现函数：
+
+```cpp
+#include <iostream>
+#include "hello.h"
+
+void printHello()
+{
+    std::cout << "Hello SLAM static library!" << '\n';
+}
+```
+
+- `useHello.cpp` 负责调用库中的函数：
+
+```cpp
+#include "hello.h"
+
+int main(int argc, char** argv)
+{
+    printHello();
+    return 0;
+}
+```
+
+如果要手动用 g++ 编译这一套文件，可以先把 `libhello.cpp` 编成目标文件，再用 `ar` 打包成静态库：
+
+```bash
+cd /home/cyfer/SLAM_Learning_for_myself/lecture_files/lecture_1~2
+
+g++ -c libhello.cpp -o libhello.o
+ar rcs libhello.a libhello.o
+
+g++ -I. useHello.cpp -L. -lhello -o useHello
+./useHello
+```
+
+这里：
+
+- `-I.` 表示让编译器在当前目录找 `hello.h`；
+- `-L.` 表示链接时去当前目录找 `libhello.a`；
+- `-lhello` 代表链接 `libhello.a`；
+- 可执行文件 `useHello` 由 `useHello.cpp` 编译得到，运行前需加 `./`。
+
+如果采用当前工程的 `CMakeLists.txt`，则写法应与实际文件一致：
+
+```cmake
+cmake_minimum_required(VERSION 3.10)
+project(helloSLAM)
+
+add_executable(helloslam main.cpp)
+add_library(hello libhello.cpp)
+add_executable(useHello useHello.cpp)
+target_link_libraries(useHello hello)
+set(CMAKE_BUILD_TYPE "Debug")
+```
+
+也就是说，头文件只负责声明，库文件只负责实现，调用程序通过 `#include "hello.h"` 获取声明，再由 `target_link_libraries(useHello hello)` 或 `-lhello` 把静态库连接进可执行程序。
+
+## 8 当前工程结构与学习顺序
+
+本讲的代码示例位于 `lecture_files/lecture_1~2` 源码目录，整体结构可按第三讲的写法统一为：一个源码根目录、一个外部构建目录、若干源文件与一个 CMake 构建脚本。
+
+```text
+SLAM_Learning_for_myself/
+├── lecture_files/lecture_1~2/
+│   ├── CMakeLists.txt
+│   ├── main.cpp
+│   ├── hello.h
+│   ├── libhello.cpp
+│   ├── useHello.cpp
+│   └── build/
+└── lecture_note/SLAM_lecture_1~2/Readme.md
+```
+
+建议按下面顺序理解：
+
+| 学习步骤 | 源文件 | 产物 | 含义 |
+| --- | --- | --- | --- |
+| 第一步 | `main.cpp` | 手动生成 `a.out` 或 `main` | 单文件快速验证 g++ 编译流程 |
+| 第二步 | `CMakeLists.txt` + `main.cpp` | `build/helloslam` | 用 CMake 编译独立 Hello SLAM 程序 |
+| 第三步 | `hello.h` + `libhello.cpp` + `useHello.cpp` | `build/libhello.a` + `build/useHello` | 学习静态库的声明、实现与链接 |
+
+其中，手动编译生成的 `main` 与 CMake 生成的 `helloslam` 来自同一条源代码，但它们位于不同目录，且属于不同构建方式；因此在阅读和实践时，要把“源码文件”和“构建产物”区分开，否则容易把 `main` 与 `helloslam` 混为同一目标。
+
+> 补充说明：本讲的 CMake 流程建议始终使用外部构建目录 `build/`，不要把源码目录当成编译目录；这样可以更接近实际 SLAM 工程的组织方式，也方便后续继续扩展到 Eigen、Pangolin 与更复杂的 CMake 工程。
+
+---
