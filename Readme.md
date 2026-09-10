@@ -33,6 +33,19 @@
 
 [阅读第 3 讲详细笔记](./lecture_note/SLAM_lecture_3/Readme.md)
 
+### 第 4 讲：Sophus 与 SO(3)/SE(3) 李群/李代数
+
+这一部分开始引入 SLAM 中常用的位姿表达与流形映射思想：
+
+- 使用 Sophus 中的 `SO3d` 与 `SE3d` 表示三维旋转与刚体位姿。
+- 理解 `SO(3)` 与 `SE(3)` 的李群结构，以及对应的 `so(3)` 与 `se(3)` 李代数空间。
+- 学习使用 `exp()`、`log()`、`hat()` 与 `vee()` 完成群元素与切空间之间的相互映射。
+- 通过 `SO3d::exp(update_so3) * SO3_R` 与 `SE3d::exp(update_se3) * SE3_Rt` 掌握左扰动式位姿增量更新方法。
+- 将 Eigen 的旋转矩阵、四元数、齐次位姿表达方式，逐步抽象为 Sophus 的群对象表达。
+- 配合 `CmakeLists.txt` 与源码工程结构完成 Sophus 工程的编译与运行。
+
+[阅读第 4 讲详细笔记](./lecture_note/SLAM_lecture_4/Readme.md)
+
 ### SLAM 常用函数速查
 
 这是一份以功能模块为主线的 Eigen 库常用函数速查笔记，整理矩阵、几何、位姿相关的常用类型和函数，并预留后续功能模块目录，便于逐步扩展可视化、图像处理、优化等内容。
@@ -45,10 +58,12 @@
 SLAM_Learning_for_myself/
 ├── lecture_files/
 │   ├── lecture_1~2/       # C++、静态库和 CMake 基础工程
-│   └── lecture_3/         # Eigen、几何变换和 Pangolin 示例
+│   ├── lecture_3/         # Eigen、几何变换和 Pangolin 示例
+│   └── lecture_4/         # Sophus、SO(3)/SE(3) 与李群/李代数示例
 ├── lecture_note/
 │   ├── SLAM_lecture_1~2/  # 第 1~2 讲笔记
 │   ├── SLAM_lecture_3/    # 第 3 讲笔记
+│   ├── SLAM_lecture_4/    # 第 4 讲笔记
 │   └── SLAM_常用函数/      # SLAM常用函数速查笔记
 └── Readme.md
 ```
