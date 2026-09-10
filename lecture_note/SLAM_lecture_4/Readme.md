@@ -394,9 +394,9 @@ $$
 
 其中 $\mathbf{A}$ 为常矩阵。使用逐次逼近法（Picard迭代）求解：将方程改写为积分形式 $\mathbf{x}(t) = \mathbf{x}_0 + \int_0^t \mathbf{A} \mathbf{x}(\tau) d\tau$，从零次近似 $\mathbf{x}_0(t) = \mathbf{x}_0$ 开始迭代：
 
-- 一次近似：$\mathbf{x}_1(t) = \mathbf{x}_0 + \mathbf{A} \mathbf{x}_0 t$
-- 二次近似：$\mathbf{x}_2(t) = \mathbf{x}_0 + \mathbf{A}\mathbf{x}_0 t + \frac{1}{2!}\mathbf{A}^2\mathbf{x}_0 t^2$
-- $n$ 次近似：$\mathbf{x}_n(t) = \left(\mathbf{I} + \mathbf{A}t + \frac{1}{2!}\mathbf{A}^2 t^2 + \cdots + \frac{1}{n!}\mathbf{A}^n t^n\right)\mathbf{x}_0$
+- 一次近似：$$\mathbf{x}_1(t) = \mathbf{x}_0 + \mathbf{A} \mathbf{x}_0 t$$
+- 二次近似：$$\mathbf{x}_2(t) = \mathbf{x}_0 + \mathbf{A}\mathbf{x}_0 t + \frac{1}{2!}\mathbf{A}^2\mathbf{x}_0 t^2$$
+- $n$ 次近似：$$\mathbf{x}_n(t) = \left(\mathbf{I} + \mathbf{A}t + \frac{1}{2!}\mathbf{A}^2 t^2 + \cdots + \frac{1}{n!}\mathbf{A}^n t^n\right)\mathbf{x}_0$$
 
 当 $n \to \infty$ 时，括号内的级数正好是 $\sum (\mathbf{A}t)^n/n!$，数学家将此级数定义为矩阵指数 $e^{\mathbf{A}t}$。于是微分方程的解可简洁地写为 $\mathbf{x}(t) = e^{\mathbf{A}t}\mathbf{x}_0$。
 
